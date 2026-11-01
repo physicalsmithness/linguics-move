@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Linguics: bringing your answers across</title>
+<!--
+  Linguics' move to an address of its own (Housing 17, r277, November 2026;
+  Architecture_Housing_network_letter_rulings v13 to v15; Smith, 31 October: "Aa").
+
+  SOURCE: deploy/linguics-move/index.html in the Linguics repository, the master.
+  PUBLISHED: copied unchanged into the physicalsmithness/linguics-move repository,
+  served at physicalsmithness.github.io/linguics-move/. That is outside /linguics/,
+  which GitHub sends to the new address once the app has its domain, so this page
+  stays at the old address.
+
+  WHAT IT DOES. Linguics at the new address opens this page as a window of its own
+  (housing/js/move.js), so that it reads this address's real storage; an iframe
+  would be given partitioned storage instead. It reads Linguics' own records and
+  settings and nothing of the other products on this address, posts them to the new
+  address only, and changes nothing here. Opened any other way, it only explains.
+
+  NO GA4, CLARITY OR FEEDBACK WIDGET: a WEB_KIT exception, asked in v15. The page
+  lives for a second or two in a window of its own; the consent gate is Linguics',
+  at the new address; and it loads nothing from anywhere.
+
+  WHAT COMES ACROSS is CARRIED below, kept in step with housing/js/move.js;
+  tools/test_move_handoff.cjs checks that the two agree.
+-->
+<style>
+  html { background: #fdfaf4; }
+  body { margin: 0; font: 16px/1.5 Lora, Georgia, "Times New Roman", serif; color: #1c1c1c; }
+  main { max-width: 34em; margin: 0 auto; padding: 32px 24px; }
+  .brand { font-size: 24px; font-weight: 600; margin: 0 0 18px; }
+  .brand span { color: #8f2b45; }
+  h1 { font-size: 19px; font-weight: 600; margin: 0 0 10px; }
+  p { margin: 0 0 12px; }
+  a { color: #8f2b45; }
+  .muted { color: #6b6b6b; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">lingu<span>ics</span></p>
+  <h1 id="title">Bringing your answers across</h1>
+  <p id="say" aria-live="polite">Reading your Linguics answers in this browser&hellip;</p>
+  <p id="more" class="muted"></p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var NEW_ORIGIN = "https://linguics.app";   // the new address: the only place this page names it
+  var TYPE = "linguics-move", VERSION = 1;
+  var DB_NAME = "linguics_learning", STORE = "records";
+  var IDENTITY = "smithics_fields_identity_v1", COHORT = "linguics_cohort_v1";
+
+  // ---- What comes across. Kept in step with housing/js/move.js. ----
+  var CARRIED_EXACT = ["ll_state_v1", "linguics_legacy_backup_v1", "linguics_staged_backup_v1", "linguics_legacy_claim_v1",
+    "ll_input_mode", "linguics_vocab_direction", "linguics_translation_way", "linguics_selection_mode", "linguics_drill_keep",
+    "linguics_drill_sessions", COHORT, IDENTITY];
+  var CARRIED_PREFIX = ["linguics_guest_state_v1", "linguics_guest_pref_v1:", "linguics_progress_event_v1:",
+    "linguics_learning_conflict_v1:", "linguics_learning_spill_v1:"];
+  var NEVER_PREFIX = ["linguics_learning_conflict_v1:linguics_progress_v1:", "linguics_learning_spill_v1:linguics_progress_v1:"];
+  function startsWithAny(key, list) { for (var i = 0; i < list.length; i++) if (key.indexOf(list[i]) === 0) return true; return false; }
+  function carried(key) {
+    key = String(key);
+    if (startsWithAny(key, NEVER_PREFIX)) return false;
+    return CARRIED_EXACT.indexOf(key) >= 0 || startsWithAny(key, CARRIED_PREFIX);
+  }
+
+  var appHost = NEW_ORIGIN.replace(/^https:\/\//, "");
+  function say(text) { document.getElementById("say").textContent = text; }
+  function more(text, link) {
+    var p = document.getElementById("more");
+    p.textContent = text;
+    if (link) {
+      p.appendChild(document.createTextNode(" "));
+      var a = document.createElement("a");
+      a.href = NEW_ORIGIN + "/housing/"; a.textContent = "Open Linguics at " + appHost + ".";
+      p.appendChild(a);
+    }
+  }
+  function errorName(error) { return String((error && (error.name || error.message)) || error || "an error"); }
+
+  var match = /^#([0-9a-f]{32})$/.exec(location.hash || ""), nonce = match ? match[1] : null;
+  var opener = null;
+  try { opener = window.opener || null; } catch (e) { opener = null; }
+  if (!opener || !nonce) {
+    document.getElementById("title").textContent = "Linguics has moved";
+    say("Linguics now lives at " + appHost + ". To bring the answers you gave at this address, open Linguics there " +
+      "in this browser and choose “Bring my answers here”.");
+    more("", true);
+    return;
+  }
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}   // the number does not stay in the address bar
+
+  // localStorage: Linguics' own keys only. The shared identity is reduced to a classroom label (its
+  // id and display name, with the Linguics class), and sent only when there is one: never the rest
+  // of it (the physics drillers' class, an email).
+  function readLocal() {
+    var out = [], shared = null, cohort = null, length;
+    length = localStorage.length;
+    for (var n = 0; n < length; n++) {
+      var key = localStorage.key(n);
+      if (key === null || !carried(key)) continue;
+      var value = localStorage.getItem(key);
+      if (value === null) continue;
+      if (key === IDENTITY) { try { shared = JSON.parse(value); } catch (e) { shared = null; } continue; }
+      if (key === COHORT) { cohort = value; continue; }
+      out.push([key, value]);
+    }
+    if (shared && typeof shared === "object" && typeof shared.display_name === "string" && shared.display_name && cohort) {
+      out.push([IDENTITY, JSON.stringify({ anonymous_id: typeof shared.anonymous_id === "string" ? shared.anonymous_id : "",
+        display_name: shared.display_name })]);
+      out.push([COHORT, cohort]);
+    }
+    return out;
+  }
+
+  // IndexedDB: Linguics' records, read only. A database that was never made here is not made now.
+  function readRecords(done) {
+    var factory = null, finished = false, created = false;
+    try { factory = window.indexedDB || null; } catch (e) { factory = null; }
+    function finish(problem, entries) { if (finished) return; finished = true; done(problem, entries || []); }
+    if (!factory) { finish(null, []); return; }
+    setTimeout(function () { finish("IndexedDB did not answer"); }, 20000);
+    function read(db) {
+      var out = [];
+      try {
+        if (!db.objectStoreNames.contains(STORE)) { db.close(); finish(null, []); return; }
+        var tx = db.transaction(STORE, "readonly"), store = tx.objectStore(STORE);
+        tx.onerror = tx.onabort = function () { try { db.close(); } catch (e) {} finish("IndexedDB: " + errorName(tx.error)); };
+        if (typeof store.getAllKeys === "function" && typeof store.getAll === "function") {
+          var keys = store.getAllKeys(), values = store.getAll();
+          tx.oncomplete = function () {
+            for (var i = 0; i < keys.result.length; i++) { var k = String(keys.result[i]); if (carried(k)) out.push([k, String(values.result[i])]); }
+            db.close(); finish(null, out);
+          };
+        } else {
+          var cursor = store.openCursor();
+          cursor.onsuccess = function () {
+            var c = cursor.result;
+            if (c) { var k = String(c.key); if (carried(k)) out.push([k, String(c.value)]); c.continue(); }
+          };
+          tx.oncomplete = function () { db.close(); finish(null, out); };
+        }
+      } catch (e) { try { db.close(); } catch (x) {} finish("IndexedDB: " + errorName(e)); }
+    }
+    function open() {
+      var req;
+      try { req = factory.open(DB_NAME); } catch (e) { finish("IndexedDB: " + errorName(e)); return; }
+      req.onupgradeneeded = function () { created = true; try { req.transaction.abort(); } catch (e) {} };
+      req.onerror = function () { if (created) finish(null, []); else finish("IndexedDB: " + errorName(req.error)); };
+      req.onsuccess = function () { read(req.result); };
+    }
+    if (typeof factory.databases === "function") {
+      factory.databases().then(function (list) {
+        for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].name === DB_NAME) { open(); return; }
+        finish(null, []);
+      }, open);
+    } else open();
+  }
+
+  function post(message) {
+    try { opener.postMessage(message, NEW_ORIGIN); }
+    catch (e) { say("Your answers could not be sent to Linguics (" + errorName(e) + "). Close this window and try again from " + appHost + "."); return; }
+    say(message.problem ? "Your answers could not be read just now (" + message.problem + "). Linguics has been told; this window closes by itself."
+      : "Your answers are on their way to Linguics. This window closes by itself.");
+    setTimeout(function () { more("If it stays open, close it and try again from Linguics at " + appHost + "."); }, 8000);
+  }
+
+  var local;
+  try { local = readLocal(); }
+  catch (e) { post({ type: TYPE, v: VERSION, nonce: nonce, problem: "this browser's storage could not be read: " + errorName(e) }); return; }
+  readRecords(function (problem, records) {
+    if (problem) { post({ type: TYPE, v: VERSION, nonce: nonce, problem: problem }); return; }
+    post({ type: TYPE, v: VERSION, nonce: nonce, from: location.origin, at: new Date().toISOString(), local: local, idb: records });
+  });
+})();
+</script>
+</body>
+</html>
